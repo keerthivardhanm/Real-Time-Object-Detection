@@ -1,60 +1,164 @@
-# YOLOv8 Object Detection Web App
+# 🤖 YOLOv8 Pro Object Detection Web App
 
-A Streamlit-based real-time object detection application using YOLOv8 models.
+A production-ready, full-featured AI object detection application built with Streamlit and YOLOv8.
 
-## Features
+![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-00FF88?style=for-the-badge&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 
-- **Image Detection**: Upload images and detect objects using YOLOv8
-- **Webcam Detection**: Real-time object detection from your camera
-- **Multiple Models**: Choose from YOLOv8n, YOLOv8s, YOLOv8m, YOLOv8l, YOLOv8x
-- **Adjustable Confidence**: Set detection threshold via slider
+## ✨ Features
 
-## Quick Start
+| Feature | Description |
+|---------|-------------|
+| **Single Image Detection** | Upload and analyze images with bounding boxes |
+| **Real-time Webcam** | Live object detection from your camera |
+| **Video Processing** | Process video files and extract frames |
+| **Batch Processing** | Process multiple images at once |
+| **Interactive Analytics** | Pie charts, histograms, and time series |
+| **Download Results** | Save annotated images with one click |
+| **Multiple Models** | Choose from YOLOv8n to YOLOv8x |
+| **Adjustable Parameters** | Confidence & IoU threshold controls |
+
+## 🚀 Quick Start
 
 ### Local Installation
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
-cd <repo-name>
+git clone https://github.com/YOUR_USERNAME/yolov8-detector.git
+cd yolov8-detector
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Run the app
-streamlit run object_detection_main.py
+streamlit run app.py
 ```
 
-### Usage
+The app will open at `http://localhost:8501`
 
-1. Select a YOLOv8 model from the sidebar
-2. Adjust the confidence threshold
-3. Choose between **Image Upload** or **Webcam** mode
-4. For images: upload a photo and click "Run Detection"
-5. For webcam: enable the checkbox to start live detection
+## 📖 Usage Guide
 
-## Deployment
+### 1. Image Detection
+1. Select **Image Upload** mode from sidebar
+2. Upload an image (JPG, PNG, BMP, WebP)
+3. Click **Run Detection**
+4. View results with bounding boxes
+5. Download annotated image
 
-### Streamlit Cloud (Free)
+### 2. Webcam Detection
+1. Select **Webcam** mode
+2. Enable the detection checkbox
+3. View real-time detections with FPS counter
 
-1. Push your code to GitHub
-2. Go to [Streamlit Cloud](https://share.streamlit.io)
-3. Connect your GitHub repository
-4. Set the main file as `object_detection_main.py`
-5. Deploy!
+### 3. Video Processing
+1. Select **Video File** mode
+2. Upload a video (MP4, AVI, MOV, MKV)
+3. Process and view sample frames
 
-### Hugging Face Spaces (Free)
+### 4. Batch Processing
+1. Select **Batch Processing** mode
+2. Upload multiple images
+3. Process all at once with summary stats
 
-1. Create a new Space on Hugging Face
-2. Select **Streamlit** as the SDK
-3. Push your code to the Space's Git repository
-4. Your app will be deployed automatically
+## 🌐 Deployment
 
-## Requirements
+### Option 1: Streamlit Cloud (Recommended - Free)
 
-- Python 3.8+
-- See `requirements.txt` for dependencies
+1. **Push to GitHub**
+   ```bash
+   git add .
+   git commit -m "Ready for deployment"
+   git push origin main
+   ```
 
-## License
+2. **Deploy**
+   - Go to [share.streamlit.io](https://share.streamlit.io)
+   - Sign in with GitHub
+   - Click **New app**
+   - Select your repository
+   - Set **Main file** = `app.py`
+   - Click **Deploy**
 
-MIT License
+### Option 2: Hugging Face Spaces (Free)
+
+1. Go to [huggingface.co/spaces](https://huggingface.co/spaces)
+2. Click **Create New Space**
+3. Select **Streamlit** as SDK
+4. Upload your files or connect GitHub repo
+5. Your app will be deployed automatically
+
+### Option 3: Render / Railway / Heroku
+
+Create a `Procfile`:
+```
+web: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
+```
+
+## 📁 Project Structure
+
+```
+yolov8-detector/
+├── app.py                 # Main application (production)
+├── object_detection_main.py  # Original simple version
+├── requirements.txt       # Python dependencies
+├── README.md             # This file
+├── .gitignore            # Git ignore rules
+├── Procfile              # Deployment config
+├── setup.sh              # Setup script
+└── yolov8n.pt           # Default model (auto-downloads)
+```
+
+## 📦 Requirements
+
+```
+streamlit>=1.28.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+ultralytics>=8.0.0
+Pillow>=10.0.0
+plotly>=5.18.0
+pandas>=2.0.0
+```
+
+## 🎯 Model Options
+
+| Model | Speed | Accuracy | Use Case |
+|-------|-------|----------|----------|
+| YOLOv8n | Fastest | Low | Quick demos |
+| YOLOv8s | Fast | Medium | Balanced |
+| YOLOv8m | Medium | High | Production |
+| YOLOv8l | Slow | Higher | High accuracy |
+| YOLOv8x | Slowest | Highest | Research |
+
+## 🔧 Configuration
+
+Adjust in sidebar:
+- **Confidence Threshold**: 0.05 - 0.95 (default: 0.35)
+- **IoU Threshold**: 0.1 - 0.9 (default: 0.45)
+- **Display Options**: Toggle labels, confidence, stats
+
+## 📊 Analytics
+
+The app provides:
+- Pie chart of object class distribution
+- Confidence score histogram
+- Session statistics (total detections, processing time)
+- Real-time FPS for webcam mode
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+## 📄 License
+
+MIT License - Feel free to use for personal and commercial projects.
+
+## 🙏 Acknowledgments
+
+- [Ultralytics](https://ultralytics.com) for YOLOv8
+- [Streamlit](https://streamlit.io) for the web framework
+- [Plotly](https://plotly.com) for visualizations
