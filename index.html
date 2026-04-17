@@ -15,9 +15,8 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
-    <style>
-        :root {
-            --primary: #00ff88;
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
             --primary-dark: #00cc6a;
             --secondary: #1a1a2e;
             --bg-dark: #0f0f1a;
@@ -932,76 +931,10 @@
         <p>No server required • No API calls • Your data stays on your device</p>
     </footer>
 
-    <script>
-        // ============================================================
-        // APPLICATION STATE
-        // ============================================================
-        const state = {
-            model: null,
-            modelLoaded: false,
-            currentMode: 'image',
-            isProcessing: false,
-            webcamActive: false,
-            webcamStream: null,
-            currentImage: null,
-            detectionHistory: [],
-            classStats: {},
-            totalImages: 0,
-            totalObjects: 0,
-            processingTimes: [],
-            pieChart: null,
-            barChart: null
-        };
-
-        // COCO-SSD Class Names
-        const CLASS_NAMES = [
-            'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
-            'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
-            'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
-            'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
-            'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
-            'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
-            'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
-            'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote',
-            'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
-            'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
-        ];
-
-        // Color palette for classes
-        const COLORS = [
-            '#00ff88', '#ff4444', '#4488ff', '#ffaa00', '#ff44ff', '#44ffff',
-            '#88ff00', '#ff8888', '#8888ff', '#ffff44', '#44ff88', '#ff44aa'
-        ];
-
-        // ============================================================
-        // DOM ELEMENTS
-        // ============================================================
-        const elements = {
-            modelStatusDot: document.getElementById('modelStatusDot'),
-            modelStatusText: document.getElementById('modelStatusText'),
-            loadingOverlay: document.getElementById('loadingOverlay'),
-            detectionArea: document.getElementById('detectionArea'),
-            imageMode: document.getElementById('imageMode'),
-            webcamMode: document.getElementById('webcamMode'),
-            batchMode: document.getElementById('batchMode'),
-            uploadZone: document.getElementById('uploadZone'),
-            fileInput: document.getElementById('fileInput'),
-            imageCanvas: document.getElementById('imageCanvas'),
-            webcamVideo: document.getElementById('webcamVideo'),
-            webcamCanvas: document.getElementById('webcamCanvas'),
-            webcamPlaceholder: document.getElementById('webcamPlaceholder'),
-            batchUploadZone: document.getElementById('batchUploadZone'),
-            batchFileInput: document.getElementById('batchFileInput'),
-            batchResults: document.getElementById('batchResults'),
-            runBtn: document.getElementById('runBtn'),
-            resultsSection: document.getElementById('resultsSection'),
-            resultObjects: document.getElementById('resultObjects'),
-            resultClasses: document.getElementById('resultClasses'),
-            resultTime: document.getElementById('resultTime'),
-            resultFPS: document.getElementById('resultFPS'),
-            detectionTags: document.getElementById('detectionTags'),
-            downloadBtn: document.getElementById('downloadBtn'),
-            confidence: document.getElementById('confidence'),
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
             confValue: document.getElementById('confValue'),
             maxDetections: document.getElementById('maxDetections'),
             maxDetValue: document.getElementById('maxDetValue'),
