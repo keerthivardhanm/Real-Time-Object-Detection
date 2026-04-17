@@ -84,6 +84,63 @@ const elements = {
     historyTable: document.getElementById('historyTable')
 };
 
+// --- Persistent Detection History ---
+function loadDetectionHistory() {
+    try {
+        const data = localStorage.getItem('detectionHistory');
+        if (data) {
+            state.detectionHistory = JSON.parse(data);
+        }
+    } catch (e) {
+        state.detectionHistory = [];
+    }
+}
+
+function saveDetectionHistory() {
+    try {
+        localStorage.setItem('detectionHistory', JSON.stringify(state.detectionHistory));
+    } catch (e) {}
+}
+
+// Patch addToHistory to save after update
+const origAddToHistory = addToHistory;
+addToHistory = function(imageName, predictions, time) {
+    // Only add to history if new objects detected (not duplicate)
+    const newClasses = [...new Set(predictions.map(p => p.class))].sort().join(',');
+    if (state.detectionHistory.length === 0 || state.detectionHistory[0].classes !== newClasses || state.detectionHistory[0].objects !== predictions.length) {
+        const entry = {
+            time: new Date().toLocaleTimeString(),
+            image: imageName,
+            objects: predictions.length,
+            classes: newClasses,
+            timeMs: time.toFixed(0)
+        };
+        state.detectionHistory.unshift(entry);
+        if (state.detectionHistory.length > 10) state.detectionHistory.pop();
+        saveDetectionHistory();
+    }
+    // Update table
+    if (state.detectionHistory.length === 0) {
+        elements.historyTable.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-secondary);">
+                    No detections yet
+                </td>
+            </tr>
+        `;
+    } else {
+        elements.historyTable.innerHTML = state.detectionHistory.map(e => `
+            <tr>
+                <td>${e.time}</td>
+                <td>${e.image}</td>
+                <td>${e.objects}</td>
+                <td>${e.classes}</td>
+                <td>${e.timeMs}ms</td>
+            </tr>
+        `).join('');
+    }
+}
+
 // ============================================================
 // MODEL LOADING
 // ============================================================
@@ -268,13 +325,45 @@ async function detectWebcam() {
 
     // Filter by confidence
     const confThreshold = elements.confidence.value / 100;
-    const filtered = predictions.filter(p => p.score >= confThreshold);
+    let filtered = predictions.filter(p => p.score >= confThreshold);
     
-    // Draw predictions
-    drawPredictions(ctx, filtered, canvas.width, canvas.height);
+    // Apply Non-Maximum Suppression for advanced scanning
+    filtered = nonMaxSuppression(filtered, 0.4);
+    
+    // Draw predictions with advanced visualization
+    drawPredictionsAdvanced(ctx, filtered, canvas.width, canvas.height);
 
     // Update stats
     updateResults(filtered, processTime, 1000 / processTime);
+
+    // Add to detection history for webcam (with timestamp and object count)
+    if (filtered.length > 0) {
+        const webcamEntry = {
+            time: new Date().toLocaleTimeString(),
+            image: 'Webcam Live',
+            objects: filtered.length,
+            classes: [...new Set(filtered.map(p => p.class))].sort().join(', '),
+            timeMs: processTime.toFixed(0)
+        };
+        // Only add if different from last entry
+        if (state.detectionHistory.length === 0 || 
+            state.detectionHistory[0].objects !== webcamEntry.objects || 
+            state.detectionHistory[0].classes !== webcamEntry.classes) {
+            state.detectionHistory.unshift(webcamEntry);
+            if (state.detectionHistory.length > 10) state.detectionHistory.pop();
+            saveDetectionHistory();
+            // Update history table
+            elements.historyTable.innerHTML = state.detectionHistory.map(e => `
+                <tr>
+                    <td>${e.time}</td>
+                    <td>${e.image}</td>
+                    <td>${e.objects}</td>
+                    <td>${e.classes}</td>
+                    <td>${e.timeMs}ms</td>
+                </tr>
+            `).join('');
+        }
+    }
 
     requestAnimationFrame(detectWebcam);
 }
@@ -313,6 +402,46 @@ elements.runBtn.addEventListener('click', async () => {
     elements.runBtn.innerHTML = '<span>🔍</span><span>Run Detection</span>';
 });
 
+// Advanced Non-Maximum Suppression
+function nonMaxSuppression(predictions, iouThreshold = 0.5) {
+    if (predictions.length === 0) return predictions;
+    
+    // Sort by confidence (highest first)
+    const sorted = [...predictions].sort((a, b) => b.score - a.score);
+    const keep = [];
+    
+    while (sorted.length > 0) {
+        const best = sorted.shift();
+        keep.push(best);
+        
+        // Remove overlapping boxes
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            const box = sorted[i];
+            const iou = calculateIOU(best.bbox, box.bbox);
+            if (iou > iouThreshold) {
+                sorted.splice(i, 1);
+            }
+        }
+    }
+    return keep;
+}
+
+function calculateIOU(box1, box2) {
+    const [x1, y1, w1, h1] = box1;
+    const [x2, y2, w2, h2] = box2;
+    
+    const xA = Math.max(x1, x2);
+    const yA = Math.max(y1, y2);
+    const xB = Math.min(x1 + w1, x2 + w2);
+    const yB = Math.min(y1 + h1, y2 + h2);
+    
+    const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+    const box1Area = w1 * h1;
+    const box2Area = w2 * h2;
+    
+    return interArea / (box1Area + box2Area - interArea);
+}
+
 async function detectImage(img) {
     const canvas = elements.imageCanvas;
     const ctx = canvas.getContext('2d');
@@ -321,16 +450,19 @@ async function detectImage(img) {
     const predictions = await state.model.detect(canvas);
     const processTime = performance.now() - startTime;
 
-    // Filter by confidence
+    // Advanced filtering: confidence threshold
     const confThreshold = elements.confidence.value / 100;
-    const filtered = predictions.filter(p => p.score >= confThreshold);
+    let filtered = predictions.filter(p => p.score >= confThreshold);
+    
+    // Apply Non-Maximum Suppression to remove overlapping boxes
+    filtered = nonMaxSuppression(filtered, 0.4);
     
     // Limit max detections
     const maxDet = parseInt(elements.maxDetections.value);
     const limited = filtered.slice(0, maxDet);
 
-    // Draw predictions
-    drawPredictions(ctx, limited, canvas.width, canvas.height);
+    // Draw predictions with advanced visualization
+    drawPredictionsAdvanced(ctx, limited, canvas.width, canvas.height);
 
     // Update results
     const fps = 1000 / processTime;
@@ -406,52 +538,108 @@ function loadImage(file) {
 }
 
 // ============================================================
-// DRAW PREDICTIONS
+// ADVANCED DRAW PREDICTIONS
 // ============================================================
-function drawPredictions(ctx, predictions, width, height) {
+function drawPredictionsAdvanced(ctx, predictions, width, height) {
     const showBoxes = elements.showBoxes.checked;
     const showLabels = elements.showLabels.checked;
     const showConf = elements.showConfidence.checked;
+    const boxLineWidth = parseInt(elements.boxLineWidth?.value || 3);
+    const fontSize = parseInt(elements.fontSize?.value || 14);
 
     predictions.forEach((pred, i) => {
         const [x, y, w, h] = pred.bbox;
         const color = COLORS[i % COLORS.length];
 
-        // Draw bounding box
+        // Draw advanced bounding box with glow effect
         if (showBoxes) {
+            // Outer glow
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 15;
             ctx.strokeStyle = color;
-            ctx.lineWidth = 3;
+            ctx.lineWidth = boxLineWidth;
             ctx.strokeRect(x, y, w, h);
-
-            // Fill with semi-transparent
-            ctx.fillStyle = color + '30';
+            
+            // Reset shadow for fill
+            ctx.shadowBlur = 0;
+            
+            // Semi-transparent fill
+            ctx.fillStyle = hexToRgba(color, 0.2);
             ctx.fillRect(x, y, w, h);
+            
+            // Inner border
+            ctx.strokeStyle = hexToRgba(color, 0.8);
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
         }
 
-        // Draw label
+        // Draw advanced label with professional styling
         if (showLabels) {
             let label = pred.class;
             if (showConf) {
                 label += ` ${(pred.score * 100).toFixed(0)}%`;
             }
 
-            // Label background
+            // Label background with rounded corners effect
             ctx.fillStyle = color;
-            ctx.fillRect(x, y - 25, ctx.measureText(label).width + 10, 25);
-
+            const labelWidth = ctx.measureText(label).width + 16;
+            ctx.fillRect(x, y - (fontSize + 16), labelWidth, fontSize + 12);
+            
             // Label text
             ctx.fillStyle = '#000';
-            ctx.font = 'bold 14px Inter';
-            ctx.fillText(label, x + 5, y - 7);
+            ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+            ctx.fillText(label, x + 8, y - 8);
+            
+            // Confidence bar
+            if (showConf) {
+                const barWidth = labelWidth - 16;
+                const barHeight = 4;
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(x + 8, y - 4, barWidth, barHeight);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(x + 8, y - 4, barWidth * pred.score, barHeight);
+            }
         }
     });
 
-    // Add timestamp
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(10, height - 40, 200, 30);
+    // Add timestamp with professional styling
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    roundRect(ctx, 12, height - 45, 220, 32, 6);
+    ctx.fill();
     ctx.fillStyle = '#fff';
-    ctx.font = '12px JetBrains Mono';
-    ctx.fillText(new Date().toLocaleString(), 15, height - 18);
+    ctx.font = '12px "JetBrains Mono", monospace';
+    ctx.fillText(new Date().toLocaleString(), 20, height - 22);
+    
+    // Object count badge
+    ctx.fillStyle = 'rgba(0, 255, 136, 0.9)';
+    roundRect(ctx, width - 100, 12, 88, 28, 6);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 13px Inter, sans-serif';
+    ctx.fillText(`${predictions.length} objects`, width - 90, 32);
+}
+
+// Helper function to draw rounded rectangles
+function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+}
+
+// Helper to convert hex to rgba
+function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 // ============================================================
@@ -571,17 +759,20 @@ function updateCharts(classCounts, confidences) {
 // HISTORY
 // ============================================================
 function addToHistory(imageName, predictions, time) {
-    const entry = {
-        time: new Date().toLocaleTimeString(),
-        image: imageName,
-        objects: predictions.length,
-        classes: [...new Set(predictions.map(p => p.class))].join(', '),
-        timeMs: time.toFixed(0)
-    };
-    
-    state.detectionHistory.unshift(entry);
-    if (state.detectionHistory.length > 10) state.detectionHistory.pop();
-
+    // Only add to history if new objects detected (not duplicate)
+    const newClasses = [...new Set(predictions.map(p => p.class))].sort().join(',');
+    if (state.detectionHistory.length === 0 || state.detectionHistory[0].classes !== newClasses || state.detectionHistory[0].objects !== predictions.length) {
+        const entry = {
+            time: new Date().toLocaleTimeString(),
+            image: imageName,
+            objects: predictions.length,
+            classes: newClasses,
+            timeMs: time.toFixed(0)
+        };
+        state.detectionHistory.unshift(entry);
+        if (state.detectionHistory.length > 10) state.detectionHistory.pop();
+        saveDetectionHistory();
+    }
     // Update table
     if (state.detectionHistory.length === 0) {
         elements.historyTable.innerHTML = `
@@ -637,4 +828,26 @@ elements.maxDetections.addEventListener('input', (e) => {
 // ============================================================
 // INITIALIZE
 // ============================================================
-window.addEventListener('load', loadModel);
+window.addEventListener('load', () => {
+    loadModel();
+    loadDetectionHistory();
+    if (state.detectionHistory.length === 0) {
+        elements.historyTable.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-secondary);">
+                    No detections yet
+                </td>
+            </tr>
+        `;
+    } else {
+        elements.historyTable.innerHTML = state.detectionHistory.map(e => `
+            <tr>
+                <td>${e.time}</td>
+                <td>${e.image}</td>
+                <td>${e.objects}</td>
+                <td>${e.classes}</td>
+                <td>${e.timeMs}ms</td>
+            </tr>
+        `).join('');
+    }
+});

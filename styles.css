@@ -639,6 +639,16 @@ input[type="range"]::-webkit-slider-thumb:hover {
     margin-top: 2rem;
 }
 
+.footer .developers {
+    color: var(--primary);
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
+}
+
+.footer .developers strong {
+    color: var(--primary);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .header {
