@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLOv8 Object Detector | Client-Side AI</title>
+    
+    <!-- TensorFlow.js and COCO-SSD Model -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+    
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #00ff88;
+            --primary-dark: #00cc6a;
+            --secondary: #1a1a2e;
+            --bg-dark: #0f0f1a;
+            --bg-card: #16162a;
+            --bg-input: #1e1e32;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --border: #2a2a4a;
+            --success: #00ff88;
+            --warning: #ffaa00;
+            --error: #ff4444;
+            --info: #4488ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(ellipse at 20% 20%, rgba(0, 255, 136, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(68, 136, 255, 0.08) 0%, transparent 50%),
+                var(--bg-dark);
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(180deg, rgba(22, 22, 42, 0.95) 0%, rgba(15, 15, 26, 0.9) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary) 0%, #00aa55 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .logo-text h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary) 0%, #00ffaa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-text span {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.loading { background: var(--warning); }
+        .status-dot.ready { background: var(--success); }
+        .status-dot.error { background: var(--error); }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Main Layout */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Sidebar */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.1);
+        }
+
+        .card-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Mode Selection */
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .mode-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: var(--bg-input);
+            border: 2px solid transparent;
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn:hover {
+            background: var(--bg-card);
+            border-color: var(--border);
+        }
+
+        .mode-btn.active {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .mode-btn-icon {
+            font-size: 1.25rem;
+        }
+
+        /* Sliders */
+        .slider-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .slider-label span {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .slider-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--primary);
+            background: rgba(0, 255, 136, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: var(--bg-input);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0, 255, 136, 0.4);
+            transition: transform 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Toggle Switch */
+        .toggle-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toggle-group:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 26px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-input);
+            border-radius: 26px;
+            transition: 0.3s;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background: var(--primary);
+        }
+
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(22px);
+            background: var(--bg-dark);
+        }
+
+        /* Main Content */
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Detection Canvas */
+        .detection-area {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            min-height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .detection-area canvas {
+            max-width: 100%;
+            max-height: 600px;
+            border-radius: 8px;
+        }
+
+        .detection-placeholder {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 3rem;
+        }
+
+        .detection-placeholder-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-input);
+        }
+
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .upload-zone-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .upload-zone-text {
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-zone-hint {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        /* Run Button */
+        .run-btn {
+            width: 100%;
+            padding: 1rem 2rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border: none;
+            border-radius: 12px;
+            color: var(--bg-dark);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .run-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+        }
+
+        .run-btn:disabled {
+            background: var(--bg-input);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Results Panel */
+        .results-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .result-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .result-card-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .result-card-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        /* Detection Tags */
+        .detection-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .detection-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--primary);
+        }
+
+        .detection-tag-count {
+            background: var(--primary);
+            color: var(--bg-dark);
+            padding: 0.1rem 0.5rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        /* Analytics Section */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        /* History Table */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .history-table th,
+        .history-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .history-table th {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .history-table td {
+            font-size: 0.9rem;
+        }
+
+        .history-table tr:hover {
+            background: var(--bg-input);
+        }
+
+        /* Download Button */
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 1rem;
+        }
+
+        .download-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 26, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            border-radius: 16px;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 1rem;
+            color: var(--text-secondary);
+        }
+
+        /* Webcam Controls */
+        .webcam-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .webcam-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .webcam-btn:hover {
+            border-color: var(--primary);
+        }
+
+        .webcam-btn.active {
+            background: var(--primary);
+            color: var(--bg-dark);
+            border-color: var(--primary);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+            }
+            
+            .main-container {
+                padding: 1rem;
+            }
+            
+            .card {
+                padding: 1rem;
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animation"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <div class="logo-icon">🤖</div>
+                <div class="logo-text">
+                    <h1>YOLOv8 Object Detector</h1>
+                    <span>Client-Side AI • No Backend</span>
+                </div>
+            </div>
+            <div class="header-status">
+                <div class="status-badge">
+                    <span class="status-dot loading" id="modelStatusDot"></span>
+                    <span id="modelStatusText">Loading Model...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Mode Selection -->
+            <div class="card">
+                <div class="card-title">🎯 Detection Mode</div>
+                <div class="mode-buttons">
+                    <button class="mode-btn active" data-mode="image">
+                        <span class="mode-btn-icon">📁</span>
+                        <span>Image Upload</span>
+                    </button>
+                    <button class="mode-btn" data-mode="webcam">
+                        <span class="mode-btn-icon">🎥</span>
+                        <span>Webcam</span>
+                    </button>
+                    <button class="mode-btn" data-mode="batch">
+                        <span class="mode-btn-icon">📚</span>
+                        <span>Batch Processing</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Parameters -->
+            <div class="card">
+                <div class="card-title">⚙️ Parameters</div>
+                
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Confidence Threshold</span>
+                        <span class="slider-value" id="confValue">35%</span>
+                    </div>
+                    <input type="range" id="confidence" min="5" max="95" value="35">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Max Detections</span>
+                        <span class="slider-value" id="maxDetValue">20</span>
+                    </div>
+                    <input type="range" id="maxDetections" min="5" max="50" value="20">
+                </div>
+            </div>
+
+            <!-- Display Options -->
+            <div class="card">
+                <div class="card-title">👁️ Display Options</div>
+                
+                <div class="toggle-group">
+                    <span class="toggle-label">Show Labels</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="showLabels" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-group">
+                    <span class="toggle-label">Show Confidence</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="showConfidence" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-group">
+                    <span class="toggle-label">Show FPS</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="showFPS" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="toggle-group">
+                    <span class="toggle-label">Show Bounding Boxes</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="showBoxes" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Session Stats -->
+            <div class="card">
+                <div class="card-title">📊 Session Statistics</div>
+                <div class="results-panel">
+                    <div class="result-card">
+                        <div class="result-card-value" id="totalImages">0</div>
+                        <div class="result-card-label">Images Processed</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="result-card-value" id="totalObjects">0</div>
+                        <div class="result-card-label">Objects Detected</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="result-card-value" id="avgTime">0ms</div>
+                        <div class="result-card-label">Avg Processing</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content-area">
+            <!-- Detection Area -->
+            <div class="detection-area" id="detectionArea">
+                <div class="loading-overlay" id="loadingOverlay">
+                    <div class="spinner"></div>
+                    <div class="loading-text">Loading AI Model...</div>
+                </div>
+
+                <!-- Image Mode -->
+                <div id="imageMode" class="mode-content">
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-zone-icon">📤</div>
+                        <div class="upload-zone-text">Drop your image here or click to upload</div>
+                        <div class="upload-zone-hint">Supports: JPG, PNG, WebP, BMP</div>
+                        <input type="file" id="fileInput" accept="image/*">
+                    </div>
+                    <canvas id="imageCanvas" style="display: none;"></canvas>
+                </div>
+
+                <!-- Webcam Mode -->
+                <div id="webcamMode" class="mode-content" style="display: none;">
+                    <video id="webcamVideo" autoplay playsinline style="display: none;"></video>
+                    <canvas id="webcamCanvas"></canvas>
+                    <div class="detection-placeholder" id="webcamPlaceholder">
+                        <div class="detection-placeholder-icon">🎥</div>
+                        <div>Click "Start Webcam" to begin detection</div>
+                    </div>
+                </div>
+
+                <!-- Batch Mode -->
+                <div id="batchMode" class="mode-content" style="display: none;">
+                    <div class="upload-zone" id="batchUploadZone">
+                        <div class="upload-zone-icon">📚</div>
+                        <div class="upload-zone-text">Upload multiple images for batch processing</div>
+                        <div class="upload-zone-hint">Select multiple files at once</div>
+                        <input type="file" id="batchFileInput" accept="image/*" multiple>
+                    </div>
+                    <div id="batchResults" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Run Button -->
+            <button class="run-btn" id="runBtn" disabled>
+                <span>🔍</span>
+                <span>Run Detection</span>
+            </button>
+
+            <!-- Results -->
+            <div id="resultsSection" style="display: none;">
+                <div class="card">
+                    <div class="card-title">🎯 Detection Results</div>
+                    <div class="results-panel">
+                        <div class="result-card">
+                            <div class="result-card-value" id="resultObjects">0</div>
+                            <div class="result-card-label">Total Objects</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-card-value" id="resultClasses">0</div>
+                            <div class="result-card-label">Unique Classes</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-card-value" id="resultTime">0ms</div>
+                            <div class="result-card-label">Processing Time</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-card-value" id="resultFPS">0</div>
+                            <div class="result-card-label">FPS</div>
+                        </div>
+                    </div>
+                    <div class="detection-tags" id="detectionTags"></div>
+                    <button class="download-btn" id="downloadBtn">
+                        <span>💾</span>
+                        <span>Download Annotated Image</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Analytics -->
+            <div class="analytics-grid">
+                <div class="chart-container">
+                    <div class="chart-title">📈 Object Class Distribution</div>
+                    <canvas id="pieChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">📊 Confidence Score Distribution</div>
+                    <canvas id="barChart"></canvas>
+                </div>
+            </div>
+
+            <!-- History -->
+            <div class="card">
+                <div class="card-title">📜 Detection History</div>
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Image</th>
+                            <th>Objects</th>
+                            <th>Classes</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTable">
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: var(--text-secondary);">
+                                No detections yet
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>🤖 YOLOv8 Object Detector | Built with TensorFlow.js | Runs 100% Client-Side</p>
+        <p>No server required • No API calls • Your data stays on your device</p>
+    </footer>
+
+    <script>
+        // ============================================================
+        // APPLICATION STATE
+        // ============================================================
+        const state = {
+            model: null,
+            modelLoaded: false,
+            currentMode: 'image',
+            isProcessing: false,
+            webcamActive: false,
+            webcamStream: null,
+            currentImage: null,
+            detectionHistory: [],
+            classStats: {},
+            totalImages: 0,
+            totalObjects: 0,
+            processingTimes: [],
+            pieChart: null,
+            barChart: null
+        };
+
+        // COCO-SSD Class Names
+        const CLASS_NAMES = [
+            'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat',
+            'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat',
+            'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
+            'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
+            'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
+            'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+            'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair',
+            'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote',
+            'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book',
+            'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+        ];
+
+        // Color palette for classes
+        const COLORS = [
+            '#00ff88', '#ff4444', '#4488ff', '#ffaa00', '#ff44ff', '#44ffff',
+            '#88ff00', '#ff8888', '#8888ff', '#ffff44', '#44ff88', '#ff44aa'
+        ];
+
+        // ============================================================
+        // DOM ELEMENTS
+        // ============================================================
+        const elements = {
+            modelStatusDot: document.getElementById('modelStatusDot'),
+            modelStatusText: document.getElementById('modelStatusText'),
+            loadingOverlay: document.getElementById('loadingOverlay'),
+            detectionArea: document.getElementById('detectionArea'),
+            imageMode: document.getElementById('imageMode'),
+            webcamMode: document.getElementById('webcamMode'),
+            batchMode: document.getElementById('batchMode'),
+            uploadZone: document.getElementById('uploadZone'),
+            fileInput: document.getElementById('fileInput'),
+            imageCanvas: document.getElementById('imageCanvas'),
+            webcamVideo: document.getElementById('webcamVideo'),
+            webcamCanvas: document.getElementById('webcamCanvas'),
+            webcamPlaceholder: document.getElementById('webcamPlaceholder'),
+            batchUploadZone: document.getElementById('batchUploadZone'),
+            batchFileInput: document.getElementById('batchFileInput'),
+            batchResults: document.getElementById('batchResults'),
+            runBtn: document.getElementById('runBtn'),
+            resultsSection: document.getElementById('resultsSection'),
+            resultObjects: document.getElementById('resultObjects'),
+            resultClasses: document.getElementById('resultClasses'),
+            resultTime: document.getElementById('resultTime'),
+            resultFPS: document.getElementById('resultFPS'),
+            detectionTags: document.getElementById('detectionTags'),
+            downloadBtn: document.getElementById('downloadBtn'),
+            confidence: document.getElementById('confidence'),
+            confValue: document.getElementById('confValue'),
+            maxDetections: document.getElementById('maxDetections'),
+            maxDetValue: document.getElementById('maxDetValue'),
+            showLabels: document.getElementById('showLabels'),
+            showConfidence: document.getElementById('showConfidence'),
+            showFPS: document.getElementById('showFPS'),
+            showBoxes: document.getElementById('showBoxes'),
+            totalImages: document.getElementById('totalImages'),
+            totalObjects: document.getElementById('totalObjects'),
+            avgTime: document.getElementById('avgTime'),
+            historyTable: document.getElementById('historyTable')
+        };
+
+        // ============================================================
+        // MODEL LOADING
+        // ============================================================
+        async function loadModel() {
+            try {
+                console.log('Loading COCO-SSD model...');
+                state.model = await cocoSsd.load({
+                    base: 'lite_mobilenet_v2'
+                });
+                state.modelLoaded = true;
+                elements.modelStatusDot.className = 'status-dot ready';
+                elements.modelStatusText.textContent = 'Model Ready';
+                elements.loadingOverlay.style.display = 'none';
+                elements.runBtn.disabled = false;
+                console.log('Model loaded successfully!');
+            } catch (error) {
+                console.error('Failed to load model:', error);
+                elements.modelStatusDot.className = 'status-dot error';
+                elements.modelStatusText.textContent = 'Model Error';
+                elements.loadingOverlay.querySelector('.loading-text').textContent = 
+                    'Failed to load model. Please refresh.';
+            }
+        }
+
+        // ============================================================
+        // MODE SWITCHING
+        // ============================================================
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.currentMode = btn.dataset.mode;
+                
+                elements.imageMode.style.display = 'none';
+                elements.webcamMode.style.display = 'none';
+                elements.batchMode.style.display = 'none';
+                
+                document.getElementById(`${state.currentMode}Mode`).style.display = 'block';
+                
+                // Update run button
+                if (state.currentMode === 'webcam') {
+                    elements.runBtn.innerHTML = '<span>▶️</span><span>Start Webcam</span>';
+                } else if (state.currentMode === 'batch') {
+                    elements.runBtn.innerHTML = '<span>🔍</span><span>Process All Images</span>';
+                } else {
+                    elements.runBtn.innerHTML = '<span>🔍</span><span>Run Detection</span>';
+                }
+                
+                // Stop webcam if switching away
+                if (state.currentMode !== 'webcam' && state.webcamActive) {
+                    stopWebcam();
+                }
+            });
+        });
+
+        // ============================================================
+        // IMAGE UPLOAD
+        // ============================================================
+        elements.uploadZone.addEventListener('click', () => elements.fileInput.click());
+        
+        elements.uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            elements.uploadZone.classList.add('dragover');
+        });
+        
+        elements.uploadZone.addEventListener('dragleave', () => {
+            elements.uploadZone.classList.remove('dragover');
+        });
+        
+        elements.uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            elements.uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleImageUpload(file);
+            }
+        });
+        
+        elements.fileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                handleImageUpload(e.target.files[0]);
+            }
+        });
+
+        function handleImageUpload(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.currentImage = img;
+                    const canvas = elements.imageCanvas;
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    elements.uploadZone.style.display = 'none';
+                    elements.imageCanvas.style.display = 'block';
+                    elements.runBtn.disabled = false;
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ============================================================
+        // BATCH UPLOAD
+        // ============================================================
+        elements.batchUploadZone.addEventListener('click', () => elements.batchFileInput.click());
+        
+        elements.batchFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleBatchUpload(e.target.files);
+            }
+        });
+
+        function handleBatchUpload(files) {
+            state.batchFiles = Array.from(files);
+            elements.batchUploadZone.style.display = 'none';
+            elements.batchResults.style.display = 'block';
+            elements.batchResults.innerHTML = `
+                <div class="card">
+                    <div class="card-title">📁 ${files.length} Images Selected</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                        ${Array.from(files).map((f, i) => `
+                            <div style="background: var(--bg-input); padding: 0.5rem; border-radius: 8px; text-align: center;">
+                                <div style="font-size: 2rem;">🖼️</div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">${f.name.substring(0, 15)}...</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            elements.runBtn.disabled = false;
+        }
+
+        // ============================================================
+        // WEBCAM
+        // ============================================================
+        async function startWebcam() {
+            try {
+                state.webcamStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                elements.webcamVideo.srcObject = state.webcamStream;
+                elements.webcamVideo.style.display = 'block';
+                elements.webcamPlaceholder.style.display = 'none';
+                elements.webcamCanvas.style.display = 'block';
+                state.webcamActive = true;
+                elements.runBtn.innerHTML = '<span>⏹️</span><span>Stop Webcam</span>';
+                detectWebcam();
+            } catch (error) {
+                alert('Could not access webcam. Please ensure camera permissions are granted.');
+                console.error('Webcam error:', error);
+            }
+        }
+
+        function stopWebcam() {
+            if (state.webcamStream) {
+                state.webcamStream.getTracks().forEach(track => track.stop());
+                state.webcamStream = null;
+            }
+            state.webcamActive = false;
+            elements.webcamVideo.style.display = 'none';
+            elements.webcamPlaceholder.style.display = 'block';
+            elements.runBtn.innerHTML = '<span>▶️</span><span>Start Webcam</span>';
+        }
+
+        async function detectWebcam() {
+            if (!state.webcamActive || !state.modelLoaded) return;
+
+            const video = elements.webcamVideo;
+            const canvas = elements.webcamCanvas;
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            ctx.drawImage(video, 0, 0);
+
+            const startTime = performance.now();
+            const predictions = await state.model.detect(canvas);
+            const processTime = performance.now() - startTime;
+
+            // Filter by confidence
+            const confThreshold = elements.confidence.value / 100;
+            const filtered = predictions.filter(p => p.score >= confThreshold);
+            
+            // Draw predictions
+            drawPredictions(ctx, filtered, canvas.width, canvas.height);
+
+            // Update stats
+            updateResults(filtered, processTime, 1000 / processTime);
+
+            requestAnimationFrame(detectWebcam);
+        }
+
+        // ============================================================
+        // DETECTION
+        // ============================================================
+        elements.runBtn.addEventListener('click', async () => {
+            if (state.currentMode === 'webcam') {
+                if (state.webcamActive) {
+                    stopWebcam();
+                } else {
+                    await startWebcam();
+                }
+                return;
+            }
+
+            if (state.isProcessing) return;
+            state.isProcessing = true;
+            elements.runBtn.disabled = true;
+            elements.runBtn.innerHTML = '<span>⏳</span><span>Processing...</span>';
+
+            try {
+                if (state.currentMode === 'image' && state.currentImage) {
+                    await detectImage(state.currentImage);
+                } else if (state.currentMode === 'batch' && state.batchFiles) {
+                    await detectBatch(state.batchFiles);
+                }
+            } catch (error) {
+                console.error('Detection error:', error);
+                alert('Error during detection: ' + error.message);
+            }
+
+            state.isProcessing = false;
+            elements.runBtn.disabled = false;
+            elements.runBtn.innerHTML = '<span>🔍</span><span>Run Detection</span>';
+        });
+
+        async function detectImage(img) {
+            const canvas = elements.imageCanvas;
+            const ctx = canvas.getContext('2d');
+            
+            const startTime = performance.now();
+            const predictions = await state.model.detect(canvas);
+            const processTime = performance.now() - startTime;
+
+            // Filter by confidence
+            const confThreshold = elements.confidence.value / 100;
+            const filtered = predictions.filter(p => p.score >= confThreshold);
+            
+            // Limit max detections
+            const maxDet = parseInt(elements.maxDetections.value);
+            const limited = filtered.slice(0, maxDet);
+
+            // Draw predictions
+            drawPredictions(ctx, limited, canvas.width, canvas.height);
+
+            // Update results
+            const fps = 1000 / processTime;
+            updateResults(limited, processTime, fps);
+            addToHistory('Single Image', limited, processTime);
+            
+            // Show results section
+            elements.resultsSection.style.display = 'block';
+        }
+
+        async function detectBatch(files) {
+            const resultsContainer = document.getElementById('batchResults');
+            resultsContainer.innerHTML = '<div class="card"><div class="card-title">📊 Processing...</div></div>';
+            
+            let totalObjects = 0;
+            let totalTime = 0;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const img = await loadImage(file);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                const startTime = performance.now();
+                const predictions = await state.model.detect(canvas);
+                const processTime = performance.now() - startTime;
+
+                const confThreshold = elements.confidence.value / 100;
+                const filtered = predictions.filter(p => p.score >= confThreshold);
+                totalObjects += filtered.length;
+                totalTime += processTime;
+
+                // Draw on canvas
+                drawPredictions(ctx, filtered, canvas.width, canvas.height);
+            }
+
+            // Update stats
+            state.totalImages += files.length;
+            state.totalObjects += totalObjects;
+            state.processingTimes.push(totalTime / files.length);
+            updateSessionStats();
+
+            resultsContainer.innerHTML = `
+                <div class="card">
+                    <div class="card-title">✅ Batch Complete</div>
+                    <div class="results-panel">
+                        <div class="result-card">
+                            <div class="result-card-value">${files.length}</div>
+                            <div class="result-card-label">Images Processed</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-card-value">${totalObjects}</div>
+                            <div class="result-card-label">Total Objects</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-card-value">${(totalTime / files.length).toFixed(0)}ms</div>
+                            <div class="result-card-label">Avg Time/Image</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function loadImage(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.src = URL.createObjectURL(file);
+            });
+        }
+
+        // ============================================================
+        // DRAW PREDICTIONS
+        // ============================================================
+        function drawPredictions(ctx, predictions, width, height) {
+            const showBoxes = elements.showBoxes.checked;
+            const showLabels = elements.showLabels.checked;
+            const showConf = elements.showConfidence.checked;
+
+            predictions.forEach((pred, i) => {
+                const [x, y, w, h] = pred.bbox;
+                const color = COLORS[i % COLORS.length];
+
+                // Draw bounding box
+                if (showBoxes) {
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(x, y, w, h);
+
+                    // Fill with semi-transparent
+                    ctx.fillStyle = color + '30';
+                    ctx.fillRect(x, y, w, h);
+                }
+
+                // Draw label
+                if (showLabels) {
+                    let label = pred.class;
+                    if (showConf) {
+                        label += ` ${(pred.score * 100).toFixed(0)}%`;
+                    }
+
+                    // Label background
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x, y - 25, ctx.measureText(label).width + 10, 25);
+
+                    // Label text
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 14px Inter';
+                    ctx.fillText(label, x + 5, y - 7);
+                }
+            });
+
+            // Add timestamp
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(10, height - 40, 200, 30);
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px JetBrains Mono';
+            ctx.fillText(new Date().toLocaleString(), 15, height - 18);
+        }
+
+        // ============================================================
+        // UPDATE RESULTS
+        // ============================================================
+        function updateResults(predictions, time, fps) {
+            // Update result cards
+            elements.resultObjects.textContent = predictions.length;
+            elements.resultClasses.textContent = new Set(predictions.map(p => p.class)).size;
+            elements.resultTime.textContent = `${time.toFixed(0)}ms`;
+            elements.resultFPS.textContent = fps.toFixed(1);
+
+            // Update detection tags
+            const classCounts = {};
+            predictions.forEach(p => {
+                classCounts[p.class] = (classCounts[p.class] || 0) + 1;
+            });
+
+            elements.detectionTags.innerHTML = Object.entries(classCounts)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cls, count]) => `
+                    <span class="detection-tag">
+                        ${cls}
+                        <span class="detection-tag-count">${count}</span>
+                    </span>
+                `).join('');
+
+            // Update charts
+            updateCharts(classCounts, predictions.map(p => p.score));
+
+            // Update session stats
+            state.totalImages++;
+            state.totalObjects += predictions.length;
+            state.processingTimes.push(time);
+            updateSessionStats();
+        }
+
+        function updateSessionStats() {
+            elements.totalImages.textContent = state.totalImages;
+            elements.totalObjects.textContent = state.totalObjects;
+            const avg = state.processingTimes.length > 0 
+                ? state.processingTimes.reduce((a, b) => a + b, 0) / state.processingTimes.length 
+                : 0;
+            elements.avgTime.textContent = `${avg.toFixed(0)}ms`;
+        }
+
+        // ============================================================
+        // CHARTS
+        // ============================================================
+        function updateCharts(classCounts, confidences) {
+            // Pie Chart
+            const pieCtx = document.getElementById('pieChart').getContext('2d');
+            if (state.pieChart) state.pieChart.destroy();
+            
+            state.pieChart = new Chart(pieCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(classCounts),
+                    datasets: [{
+                        data: Object.values(classCounts),
+                        backgroundColor: COLORS.slice(0, Object.keys(classCounts).length),
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#a0a0b0' }
+                        }
+                    }
+                }
+            });
+
+            // Bar Chart (Confidence Distribution)
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            if (state.barChart) state.barChart.destroy();
+
+            const bins = new Array(10).fill(0);
+            confidences.forEach(c => {
+                const bin = Math.min(Math.floor(c * 10), 9);
+                bins[bin]++;
+            });
+
+            state.barChart = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: bins.map((_, i) => `${i * 10}-${(i + 1) * 10}%`),
+                    datasets: [{
+                        label: 'Detections',
+                        data: bins,
+                        backgroundColor: '#00ff88',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { 
+                            ticks: { color: '#a0a0b0' },
+                            grid: { color: '#2a2a4a' }
+                        },
+                        y: { 
+                            ticks: { color: '#a0a0b0' },
+                            grid: { color: '#2a2a4a' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // ============================================================
+        // HISTORY
+        // ============================================================
+        function addToHistory(imageName, predictions, time) {
+            const entry = {
+                time: new Date().toLocaleTimeString(),
+                image: imageName,
+                objects: predictions.length,
+                classes: [...new Set(predictions.map(p => p.class))].join(', '),
+                timeMs: time.toFixed(0)
+            };
+            
+            state.detectionHistory.unshift(entry);
+            if (state.detectionHistory.length > 10) state.detectionHistory.pop();
+
+            // Update table
+            if (state.detectionHistory.length === 0) {
+                elements.historyTable.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-secondary);">
+                            No detections yet
+                        </td>
+                    </tr>
+                `;
+            } else {
+                elements.historyTable.innerHTML = state.detectionHistory.map(e => `
+                    <tr>
+                        <td>${e.time}</td>
+                        <td>${e.image}</td>
+                        <td>${e.objects}</td>
+                        <td>${e.classes}</td>
+                        <td>${e.timeMs}ms</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // ============================================================
+        // DOWNLOAD
+        // ============================================================
+        elements.downloadBtn.addEventListener('click', () => {
+            let canvas;
+            if (state.currentMode === 'image') {
+                canvas = elements.imageCanvas;
+            } else if (state.currentMode === 'webcam') {
+                canvas = elements.webcamCanvas;
+            } else {
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.download = `detected_${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // ============================================================
+        // SLIDERS
+        // ============================================================
+        elements.confidence.addEventListener('input', (e) => {
+            elements.confValue.textContent = `${e.target.value}%`;
+        });
+
+        elements.maxDetections.addEventListener('input', (e) => {
+            elements.maxDetValue.textContent = e.target.value;
+        });
+
+        // ============================================================
+        // INITIALIZE
+        // ============================================================
+        window.addEventListener('load', loadModel);
+    </script>
+</body>
+</html>
