@@ -1,4 +1,15 @@
-# 🤖 YOLOv8 Pro Object Detection Web App
+# 🤖 YOLOv8 Object Detection Project
+
+## Two Versions Available
+
+| Version | Files | Description |
+|---------|-------|-------------|
+| **Python (Recommended)** | `app.py`, `requirements.txt` | Full YOLOv8 power, better accuracy |
+| **Browser Only** | `index.html`, `styles.css`, `app.js` | No installation, runs in browser |
+
+---
+
+## 🚀 Python Version (Recommended)
 
 A production-ready, full-featured AI object detection application built with Streamlit and YOLOv8.
 
@@ -99,14 +110,27 @@ web: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
 
 ```
 yolov8-detector/
-├── app.py                 # Main application (production)
-├── object_detection_main.py  # Original simple version
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
-├── .gitignore            # Git ignore rules
-├── Procfile              # Deployment config
-├── setup.sh              # Setup script
-└── yolov8n.pt           # Default model (auto-downloads)
+├── app.py              # Python Streamlit app (recommended)
+├── requirements.txt    # Python dependencies
+├── index.html          # Browser version (HTML)
+├── styles.css          # Browser version (CSS)
+├── app.js              # Browser version (JS)
+└── README.md           # This file
+```
+
+## 🌐 Browser Version (No Install)
+
+Simply open `index.html` in any modern browser. Uses TensorFlow.js for client-side detection.
+
+## 🎯 Model Options (Python Version)
+
+| Model | Speed | Accuracy |
+|-------|-------|----------|
+| YOLOv8n | Fastest | Good |
+| YOLOv8s | Fast | Better |
+| YOLOv8m | Medium | Great |
+| YOLOv8l | Slow | Excellent |
+| YOLOv8x | Slowest | Best |
 ```
 
 ## 📦 Requirements
