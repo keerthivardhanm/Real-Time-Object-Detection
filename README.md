@@ -202,5 +202,5 @@ MIT License - Free for personal and commercial use.
 ---
 
 <p align="center">
-  Made with ❤️ by M Keerthi Vardhan, K Yugavardhan, M Drona Reddy, K Shashank
+  Developed by M Keerthi Vardhan, K Yugavardhan, M Drona Reddy, K Shashank
 </p>
